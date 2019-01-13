@@ -22,7 +22,13 @@ fn main() {
 
     rocket::ignite()
         .attach(DatabaseConnection::fairing())
-        .mount("/habits", routes![controllers::habits::index])
+        .mount("/habits", routes![
+            controllers::habits::index,
+            controllers::habits::create,
+            controllers::habits::read,
+            controllers::habits::update,
+            controllers::habits::delete,
+        ])
         .register(catchers![errors::internal_server_error])
         .launch();
 }
