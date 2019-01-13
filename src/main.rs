@@ -1,23 +1,28 @@
+#![allow(proc_macro_derive_resolution_fallback)] // TODO: remove this when diesel handles it properly
 #![feature(proc_macro_hygiene, decl_macro)]
 
 #[macro_use] extern crate rocket;
 #[macro_use] extern crate rocket_contrib;
+#[macro_use] extern crate diesel;
+#[macro_use] extern crate serde_derive;
 
-use rocket_contrib::databases::diesel;
+mod schema;
+mod controllers;
+mod models;
+mod errors;
+
+// use rocket_contrib::databases::diesel;
 use dotenv::dotenv;
 
 #[database("habits")]
 pub struct DatabaseConnection(diesel::SqliteConnection);
-
-#[get("/")]
-fn index() -> &'static str {
-    "Hello, world!"
-}
 
 fn main() {
     dotenv().ok();
 
     rocket::ignite()
         .attach(DatabaseConnection::fairing())
-        .mount("/", routes![index]).launch();
+        .mount("/habits", routes![controllers::habits::index])
+        .register(catchers![errors::internal_server_error])
+        .launch();
 }

@@ -1,21 +1,20 @@
 table! {
     habits (id) {
-        id -> Nullable<Integer>,
+        id -> Integer,
         name -> Text,
         description -> Nullable<Text>,
         start -> Integer,
         duration -> Integer,
         done_count -> Integer,
         done_streak -> Integer,
-        active -> Integer,
+        active -> Bool,
     }
 }
 
 table! {
     recurrences (id) {
-        id -> Nullable<Integer>,
-        #[sql_name = "type"]
-        type_ -> Integer,
+        id -> Integer,
+        recurrence_type -> Integer,
         day_of_week -> Nullable<Integer>,
         day_of_month -> Nullable<Integer>,
         week_of_month -> Nullable<Integer>,
