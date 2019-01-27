@@ -12,11 +12,21 @@ pub struct Habit {
     pub active: bool,
 }
 
-#[derive(Insertable, AsChangeset, Deserialize)]
+#[derive(Insertable, Deserialize)]
 #[table_name="habits"]
 pub struct NewHabit {
     pub name: String,
     pub description: Option<String>,
     pub start: i32,
     pub duration: i32,
+}
+
+#[derive(AsChangeset, Deserialize)]
+#[table_name="habits"]
+pub struct ChangedHabit {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub start: Option<i32>,
+    pub duration: Option<i32>,
+    pub active: Option<bool>,
 }

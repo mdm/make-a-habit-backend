@@ -37,8 +37,8 @@ pub fn read(id: i32, db: DatabaseConnection) -> QueryResult<Json<Habit>> {
         .map(|habit| Json(habit))
 }
 
-#[put("/<id>", data = "<habit>")]
-pub fn update(id: i32, habit: Json<NewHabit>, db: DatabaseConnection) -> QueryResult<Json<Habit>> {
+#[patch("/<id>", data = "<habit>")]
+pub fn update(id: i32, habit: Json<ChangedHabit>, db: DatabaseConnection) -> QueryResult<Json<Habit>> {
     db.0.transaction(|| {
         diesel::update(habits::table.find(id))
             .set(&habit.0)
