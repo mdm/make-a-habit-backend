@@ -3,7 +3,7 @@ table! {
         id -> Integer,
         name -> Text,
         description -> Nullable<Text>,
-        start -> Integer,
+        start -> Timestamp,
         duration -> Integer,
         done_count -> Integer,
         done_streak -> Integer,

@@ -69,7 +69,6 @@ pub fn delete(id: i32, db: DatabaseConnection) -> Result<Status, Status> {
 }
 
 fn error_status(error: Error) -> Status { // TODO: use for all controllers
-    dbg!(&error);
     match error {
         Error::NotFound => Status::NotFound,
         _ => Status::InternalServerError
