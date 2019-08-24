@@ -16,6 +16,7 @@ table! {
 table! {
     recurrences (id) {
         id -> Integer,
+        habit_id -> Integer,
         recurrence_type -> Integer,
         day_of_week -> Nullable<Integer>,
         day_of_month -> Nullable<Integer>,
