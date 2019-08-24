@@ -9,9 +9,23 @@ use crate::DatabaseConnection;
 use crate::schema::habits;
 
 #[get("/")]
-pub fn index(db: DatabaseConnection) -> Result<Json<Vec<Habit>>, Status> {
+pub fn index(db: DatabaseConnection) -> Result<Json<Vec<HabitResponse>>, Status> {
     habits::table.load::<Habit>(&db.0)
-        .map(|habit| Json(habit))
+        .map(|habits|
+            Json(habits.iter().map(|habit|
+                HabitResponse {
+                    id: habit.id,
+                    name: habit.name,
+                    description: habit.description,
+                    time_limit: habit.time_limit,
+                    recurrences: fetch_recurrences(habit.id),
+                    next_due: habit.next_due,
+                    done_count: habit.done_count,
+                    streak_current: habit.streak_current,
+                    streak_max: habit.streak_max
+                }
+            ).collect())
+        )
         .map_err(|error| error_status(error))
 }
 
@@ -66,6 +80,11 @@ pub fn delete(id: i32, db: DatabaseConnection) -> Result<Status, Status> {
             }
         })
         .map_err(|error| error_status(error))
+}
+
+#[post("/<id>/done")]
+pub fn mark_done(id: i32, db: DatabaseConnection) -> Result<Status, Status> {
+    Ok(Status::Ok)
 }
 
 fn error_status(error: Error) -> Status { // TODO: use for all controllers

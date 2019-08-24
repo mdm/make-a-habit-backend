@@ -28,6 +28,7 @@ fn main() {
             controllers::habits::read,
             controllers::habits::update,
             controllers::habits::delete,
+            controllers::habits::mark_done,
         ])
         .register(catchers![errors::internal_server_error])
         .launch();

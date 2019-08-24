@@ -3,10 +3,12 @@ table! {
         id -> Integer,
         name -> Text,
         description -> Nullable<Text>,
+        time_limit -> Integer,
         start -> Timestamp,
-        duration -> Integer,
+        next_due -> Timestamp,
         done_count -> Integer,
-        done_streak -> Integer,
+        streak_current -> Integer,
+        streak_max -> Integer,
         active -> Bool,
     }
 }
