@@ -1,9 +1,11 @@
+use std::ops::Add;
 use rocket::http::Status;
 use rocket::response::status;
 use rocket_contrib::json::Json;
 use diesel::prelude::*;
 use diesel::result::Error;
-use chrono::{NaiveDateTime, Utc};
+use chrono::{NaiveDateTime, Utc, Datelike, Duration};
+
 
 use crate::models::habit::*;
 use crate::models::recurrence::*;
@@ -94,8 +96,16 @@ pub fn delete(id: i32, db: DatabaseConnection) -> Result<Status, Status> {
 }
 
 #[post("/<id>/done")]
-pub fn mark_done(id: i32, db: DatabaseConnection) -> Result<Status, Status> {
-    Ok(Status::Ok)
+pub fn mark_done(id: i32, db: DatabaseConnection) -> Result<Json<HabitResponse>, Status> {
+    habits::table.find(id)
+        .get_result::<Habit>(&db.0)
+        .map(|habit| {
+            let recurrences = fetch_recurrences(&habit, &db);
+            let next_due_option = Some(update_next_due(&habit, &db));
+
+            Json(HabitResponse::new(habit, recurrences, next_due_option))
+        })
+    .map_err(|error| error_status(error))
 }
 
 fn error_status(error: Error) -> Status {
@@ -123,6 +133,25 @@ fn create_recurrences(habit: &Habit, recurrences: &Vec<i32>, db: &DatabaseConnec
     Vec::new()
 }
 
+// TODO: improve error handling
 fn update_next_due(habit: &Habit, db: &DatabaseConnection) -> NaiveDateTime {
-    Utc::now().naive_local()
+    let now = Utc::now().naive_local();
+
+    let recurrences = fetch_recurrences(habit, db);
+    let day_of_week = now.date().weekday().num_days_from_monday();
+    let next_due_in_days = recurrences.into_iter()
+        .map(|recurrence| if recurrence <= day_of_week as i32 {
+            recurrence + 7 - day_of_week as i32 + 1
+        } else {
+            recurrence - day_of_week as i32 + 1
+        }).min().unwrap();
+
+    let next_due = now.add(Duration::days(next_due_in_days as i64)).date().and_hms(0, 0, 0);
+    let changed_habit = ChangedHabit::from_next_due(next_due);
+
+    diesel::update(habits::table.find(habit.id))
+        .set(&changed_habit)
+        .execute(&db.0).unwrap();
+
+    changed_habit.next_due.unwrap()
 }
