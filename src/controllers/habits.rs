@@ -14,9 +14,11 @@ use crate::schema::habits;
 pub fn index(db: DatabaseConnection) -> Result<Json<Vec<HabitResponse>>, Status> {
     habits::table.load::<Habit>(&db.0)
         .map(|habits|
-            Json(habits.iter().map(|habit|
-                HabitResponse::new(habit, fetch_recurrences(habit, &db), None)
-            ).collect())
+            Json(habits.into_iter().map(|habit| {
+                let recurrences = fetch_recurrences(&habit, &db);
+
+                HabitResponse::new(habit, recurrences, None)
+            }).collect())
         )
         .map_err(|error| error_status(error))
 }
@@ -24,19 +26,21 @@ pub fn index(db: DatabaseConnection) -> Result<Json<Vec<HabitResponse>>, Status>
 #[post("/", data = "<habit_request>")]
 pub fn create(habit_request: Json<HabitRequest>, db: DatabaseConnection) -> Result<status::Created<Json<HabitResponse>>, Status> {
     db.0.transaction(|| {
+        let recurrences = habit_request.0.recurrences.clone();
+
         diesel::insert_into(habits::table)
-            .values(NewHabit::from_request(&habit_request.0))
+            .values(NewHabit::from_request(habit_request.0))
             .execute(&db.0)?;
 
         habits::table.order(habits::id.desc())
             .first(&db.0)
             .map(|habit: Habit| {
-                create_recurrences(&habit, &habit_request.0.recurrences, &db);
-                let recurrences = fetch_recurrences(&habit, &db);
+                create_recurrences(&habit, &recurrences, &db);
+                let recurrences = fetch_recurrences(&habit, &db); // TODO: do we need to fetch here?
                 let next_due_option = Some(update_next_due(&habit, &db));
 
                 let url = uri!("/habits", read: id = habit.id).path().to_string();
-                let content = Json(HabitResponse::new(&habit, recurrences, next_due_option));
+                let content = Json(HabitResponse::new(habit, recurrences, next_due_option));
                 status::Created(url, Some(content))
             })
     })
@@ -47,23 +51,30 @@ pub fn create(habit_request: Json<HabitRequest>, db: DatabaseConnection) -> Resu
 pub fn read(id: i32, db: DatabaseConnection) -> Result<Json<HabitResponse>, Status> {
     habits::table.find(id)
         .get_result::<Habit>(&db.0)
-        .map(|habit| Json(HabitResponse::new(&habit, fetch_recurrences(&habit, &db), None)))
+        .map(|habit| {
+            let recurrences = fetch_recurrences(&habit, &db);
+            Json(HabitResponse::new(habit, recurrences, None))
+        })
         .map_err(|error| error_status(error))
 }
 
 #[put("/<id>", data = "<habit_request>")]
 pub fn update(id: i32, habit_request: Json<HabitRequest>, db: DatabaseConnection) -> Result<Json<HabitResponse>, Status> {
     db.0.transaction(|| {
+        let recurrences = habit_request.0.recurrences.clone();
+
         diesel::update(habits::table.find(id))
-            .set(ChangedHabit::from_request(&habit_request.0))
+            .set(ChangedHabit::from_request(habit_request.0))
             .execute(&db.0)?;
 
         habits::table.find(id)
             .get_result::<Habit>(&db.0)
             .map(|habit| {
-                create_recurrences(&habit, &habit_request.0.recurrences, &db);
+                create_recurrences(&habit, &recurrences, &db);
+                let recurrences = fetch_recurrences(&habit, &db); // TODO: do we need to fetch here?
+                let next_due_option = Some(update_next_due(&habit, &db));
   
-                Json(HabitResponse::new(&habit, fetch_recurrences(&habit, &db), Some(update_next_due(&habit, &db))))
+                Json(HabitResponse::new(habit, recurrences, next_due_option))
             })
     })
     .map_err(|error| error_status(error))
@@ -103,7 +114,7 @@ fn fetch_recurrences(habit: &Habit, db: &DatabaseConnection) -> Vec<i32> {
             ).filter_map(|recurrence|
                 recurrence.day_of_week
             ).collect(),
-        Err(err) => Vec::new(),
+        Err(_err) => Vec::new(),
     }
 }
 

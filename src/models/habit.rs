@@ -30,11 +30,11 @@ pub struct HabitResponse {
 }
 
 impl HabitResponse {
-    pub fn new(habit: &Habit, recurrences: Vec<i32>, next_due_option: Option<NaiveDateTime>) -> HabitResponse {
+    pub fn new(habit: Habit, recurrences: Vec<i32>, next_due_option: Option<NaiveDateTime>) -> HabitResponse {
         HabitResponse {
             id: habit.id,
-            name: habit.name.clone(),
-            description: habit.description.clone(),
+            name: habit.name,
+            description: habit.description,
             time_limit: habit.time_limit,
             recurrences: recurrences,
             next_due: match next_due_option {
@@ -67,10 +67,10 @@ pub struct NewHabit {
 }
 
 impl NewHabit {
-    pub fn from_request(habit: &HabitRequest) -> NewHabit {
+    pub fn from_request(habit: HabitRequest) -> NewHabit {
         NewHabit {
-            name: habit.name.clone(),
-            description: habit.description.clone(),
+            name: habit.name,
+            description: habit.description,
             time_limit: habit.time_limit,
             start: Utc::now().naive_local(),
             next_due: None,
@@ -88,10 +88,10 @@ pub struct ChangedHabit {
 }
 
 impl ChangedHabit {
-    pub fn from_request(habit: &HabitRequest) -> ChangedHabit {
+    pub fn from_request(habit: HabitRequest) -> ChangedHabit {
         ChangedHabit {
-            name: Some(habit.name.clone()),
-            description: habit.description.clone(),
+            name: Some(habit.name),
+            description: habit.description,
             time_limit: Some(habit.time_limit),
             next_due: None,
         }
