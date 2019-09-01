@@ -77,8 +77,16 @@ pub fn update(id: i32, habit_request: Json<HabitRequest>, db: DatabaseConnection
             .map(|habit| {
                 create_recurrences(&habit, &recurrences, &db);
                 let recurrences = fetch_recurrences(&habit, &db); // TODO: do we need to fetch here?
-  
-                Json(HabitResponse::new(habit, recurrences))
+                let now = Utc::now().naive_local();
+
+                if habit.start > now {
+                    let start = update_start(&habit, &recurrences, &now, &db);
+                    let mut response = HabitResponse::new(habit, recurrences);
+                    response.start = start;
+                    Json(response)
+                } else {
+                    Json(HabitResponse::new(habit, recurrences))
+                }
             })
     })
     .map_err(|error| error_status(error))
