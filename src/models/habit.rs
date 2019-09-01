@@ -30,17 +30,14 @@ pub struct HabitResponse {
 }
 
 impl HabitResponse {
-    pub fn new(habit: Habit, recurrences: Vec<i32>, next_due_option: Option<NaiveDateTime>) -> HabitResponse {
+    pub fn new(habit: Habit, recurrences: Vec<i32>) -> HabitResponse {
         HabitResponse {
             id: habit.id,
             name: habit.name,
             description: habit.description,
             time_limit: habit.time_limit,
             recurrences: recurrences,
-            next_due: match next_due_option {
-                Some(next_due) => next_due,
-                None => habit.next_due,
-            },
+            next_due: habit.next_due,
             done_count: habit.done_count,
             streak_current: habit.streak_current,
             streak_max: habit.streak_max,
@@ -85,6 +82,9 @@ pub struct ChangedHabit {
     pub description: Option<String>,
     pub time_limit: Option<i32>,
     pub next_due: Option<NaiveDateTime>,
+    pub done_count: Option<i32>,
+    pub streak_current: Option<i32>,
+    pub streak_max: Option<i32>,
 }
 
 impl ChangedHabit {
@@ -94,6 +94,9 @@ impl ChangedHabit {
             description: habit.description,
             time_limit: Some(habit.time_limit),
             next_due: None,
+            done_count: None,
+            streak_current: None,
+            streak_max: None,
         }
     }
 
@@ -103,6 +106,21 @@ impl ChangedHabit {
             description: None,
             time_limit: None,
             next_due: Some(next_due),
+            done_count: None,
+            streak_current: None,
+            streak_max: None,
+        }
+    }
+
+    pub fn from_statistics(done_count: i32, streak_current: i32, streak_max: i32) -> ChangedHabit {
+        ChangedHabit {
+            name: None,
+            description: None,
+            time_limit: None,
+            next_due: None,
+            done_count: Some(done_count),
+            streak_current: Some(streak_current),
+            streak_max: Some(streak_max),
         }
     }
 }

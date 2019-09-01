@@ -19,7 +19,7 @@ pub fn index(db: DatabaseConnection) -> Result<Json<Vec<HabitResponse>>, Status>
             Json(habits.into_iter().map(|habit| {
                 let recurrences = fetch_recurrences(&habit, &db);
 
-                HabitResponse::new(habit, recurrences, None)
+                HabitResponse::new(habit, recurrences)
             }).collect())
         )
         .map_err(|error| error_status(error))
@@ -39,10 +39,13 @@ pub fn create(habit_request: Json<HabitRequest>, db: DatabaseConnection) -> Resu
             .map(|habit: Habit| {
                 create_recurrences(&habit, &recurrences, &db);
                 let recurrences = fetch_recurrences(&habit, &db); // TODO: do we need to fetch here?
-                let next_due_option = Some(update_next_due(&habit, &db));
+                let now = Utc::now().naive_local();
+                let next_due = update_next_due(&habit, &recurrences, &now, &db);
 
                 let url = uri!("/habits", read: id = habit.id).path().to_string();
-                let content = Json(HabitResponse::new(habit, recurrences, next_due_option));
+                let mut response = HabitResponse::new(habit, recurrences);
+                response.next_due = next_due;
+                let content = Json(response);
                 status::Created(url, Some(content))
             })
     })
@@ -55,7 +58,7 @@ pub fn read(id: i32, db: DatabaseConnection) -> Result<Json<HabitResponse>, Stat
         .get_result::<Habit>(&db.0)
         .map(|habit| {
             let recurrences = fetch_recurrences(&habit, &db);
-            Json(HabitResponse::new(habit, recurrences, None))
+            Json(HabitResponse::new(habit, recurrences))
         })
         .map_err(|error| error_status(error))
 }
@@ -74,9 +77,8 @@ pub fn update(id: i32, habit_request: Json<HabitRequest>, db: DatabaseConnection
             .map(|habit| {
                 create_recurrences(&habit, &recurrences, &db);
                 let recurrences = fetch_recurrences(&habit, &db); // TODO: do we need to fetch here?
-                let next_due_option = Some(update_next_due(&habit, &db));
   
-                Json(HabitResponse::new(habit, recurrences, next_due_option))
+                Json(HabitResponse::new(habit, recurrences))
             })
     })
     .map_err(|error| error_status(error))
@@ -101,9 +103,17 @@ pub fn mark_done(id: i32, db: DatabaseConnection) -> Result<Json<HabitResponse>,
         .get_result::<Habit>(&db.0)
         .map(|habit| {
             let recurrences = fetch_recurrences(&habit, &db);
-            let next_due_option = Some(update_next_due(&habit, &db));
+            let now = Utc::now().naive_local();
+            let next_due = update_next_due(&habit, &recurrences, &now, &db);
+            let (done_count, streak_current, streak_max) = update_statistics(&habit, &now, &db);
 
-            Json(HabitResponse::new(habit, recurrences, next_due_option))
+            let mut response = HabitResponse::new(habit, recurrences);
+            response.next_due = next_due;
+            response.done_count = done_count;
+            response.streak_current = streak_current;
+            response.streak_max = streak_max;
+
+            Json(response)
         })
     .map_err(|error| error_status(error))
 }
@@ -134,24 +144,46 @@ fn create_recurrences(habit: &Habit, recurrences: &Vec<i32>, db: &DatabaseConnec
 }
 
 // TODO: improve error handling
-fn update_next_due(habit: &Habit, db: &DatabaseConnection) -> NaiveDateTime {
-    let now = Utc::now().naive_local();
-
-    let recurrences = fetch_recurrences(habit, db);
+fn update_next_due(habit: &Habit, recurrences: &Vec<i32>, now: &NaiveDateTime, db: &DatabaseConnection) -> NaiveDateTime {
     let day_of_week = now.date().weekday().num_days_from_monday();
-    let next_due_in_days = recurrences.into_iter()
-        .map(|recurrence| if recurrence <= day_of_week as i32 {
+    let next_due_in_days = recurrences.iter()
+        .map(|recurrence| if recurrence <= &(day_of_week as i32) {
             recurrence + 7 - day_of_week as i32 + 1
         } else {
             recurrence - day_of_week as i32 + 1
         }).min().unwrap();
 
     let next_due = now.add(Duration::days(next_due_in_days as i64)).date().and_hms(0, 0, 0);
+
     let changed_habit = ChangedHabit::from_next_due(next_due);
 
     diesel::update(habits::table.find(habit.id))
         .set(&changed_habit)
         .execute(&db.0).unwrap();
 
-    changed_habit.next_due.unwrap()
+    next_due
+}
+
+fn update_statistics(habit: &Habit, now: &NaiveDateTime, db: &DatabaseConnection) -> (i32, i32, i32) {
+    let done_count = habit.done_count + 1;
+
+    let streak_current = if now < &habit.next_due {
+        habit.streak_current + 1
+    } else {
+        0
+    };
+
+    let streak_max = if streak_current > habit.streak_max {
+        streak_current
+    } else {
+        habit.streak_max
+    };
+
+    let changed_habit = ChangedHabit::from_statistics(done_count, streak_current, streak_max);
+
+    diesel::update(habits::table.find(habit.id))
+        .set(&changed_habit)
+        .execute(&db.0).unwrap();
+
+    (done_count, streak_current, streak_max)
 }
