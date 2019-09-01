@@ -94,15 +94,22 @@ pub fn update(id: i32, habit_request: Json<HabitRequest>, db: DatabaseConnection
 
 #[delete("/<id>")]
 pub fn delete(id: i32, db: DatabaseConnection) -> Result<Status, Status> {
-    diesel::delete(habits::table.find(id))
-        .execute(&db.0)
-        .map(|rows_affected| {
-            match rows_affected {
-                0 => Status::NotFound,
-                _ => Status::Ok
-            }
-        })
-        .map_err(|error| error_status(error))
+    use crate::schema::recurrences;
+
+    db.0.transaction(|| {
+        diesel::delete(recurrences::table.filter(recurrences::habit_id.eq(id)))
+            .execute(&db.0)?;
+
+        diesel::delete(habits::table.find(id))
+            .execute(&db.0)
+            .map(|rows_affected| {
+                match rows_affected {
+                    0 => Status::NotFound, // TODO: roll back transaction
+                    _ => Status::Ok
+                }
+            })
+    })
+    .map_err(|error| error_status(error))
 }
 
 #[post("/<id>/done")]

@@ -9,5 +9,5 @@ CREATE TABLE recurrences (
     day_of_year INTEGER,
     week_of_year INTEGER,
     month_of_year INTEGER,
-    FOREIGN KEY (habit_id) REFERENCES habits (id) ON DELETE CASCADE
+    FOREIGN KEY (habit_id) REFERENCES habits (id)
 )
