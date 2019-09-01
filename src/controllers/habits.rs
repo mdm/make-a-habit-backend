@@ -139,8 +139,21 @@ fn fetch_recurrences(habit: &Habit, db: &DatabaseConnection) -> Vec<i32> {
 }
 
 // TODO: improve error handling
-fn create_recurrences(habit: &Habit, recurrences: &Vec<i32>, db: &DatabaseConnection) -> Vec<Recurrence> {
-    Vec::new()
+fn create_recurrences(habit: &Habit, days_of_week: &Vec<i32>, db: &DatabaseConnection) {
+    use crate::schema::recurrences;
+
+    db.0.transaction(|| {
+        diesel::delete(recurrences::table.filter(recurrences::habit_id.eq(habit.id)))
+            .execute(&db.0)?;
+
+        days_of_week.iter()
+            .map(|day_of_week| {
+                diesel::insert_into(recurrences::table)
+                    .values(&NewRecurrence::new(&habit, day_of_week))
+                    .execute(&db.0)
+            })
+            .last().unwrap()
+    }).unwrap();
 }
 
 // TODO: improve error handling
