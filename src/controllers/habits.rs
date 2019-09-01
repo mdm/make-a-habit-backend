@@ -183,7 +183,7 @@ fn update_statistics(habit: &Habit, now: &NaiveDateTime, db: &DatabaseConnection
     let streak_current = if now < &habit.next_due {
         habit.streak_current + 1
     } else {
-        0
+        1
     };
 
     let streak_max = if streak_current > habit.streak_max {
