@@ -40,11 +40,11 @@ pub fn create(habit_request: Json<HabitRequest>, db: DatabaseConnection) -> Resu
                 create_recurrences(&habit, &recurrences, &db);
                 let recurrences = fetch_recurrences(&habit, &db); // TODO: do we need to fetch here?
                 let now = Utc::now().naive_local();
-                let next_due = update_next_due(&habit, &recurrences, &now, &db);
+                let start = update_start(&habit, &recurrences, &now, &db);
 
                 let url = uri!("/habits", read: id = habit.id).path().to_string();
                 let mut response = HabitResponse::new(habit, recurrences);
-                response.next_due = next_due;
+                response.start = start;
                 let content = Json(response);
                 status::Created(url, Some(content))
             })
@@ -104,11 +104,11 @@ pub fn mark_done(id: i32, db: DatabaseConnection) -> Result<Json<HabitResponse>,
         .map(|habit| {
             let recurrences = fetch_recurrences(&habit, &db);
             let now = Utc::now().naive_local();
-            let next_due = update_next_due(&habit, &recurrences, &now, &db);
+            let start = update_start(&habit, &recurrences, &now, &db);
             let (done_count, streak_current, streak_max) = update_statistics(&habit, &now, &db);
 
             let mut response = HabitResponse::new(habit, recurrences);
-            response.next_due = next_due;
+            response.start = start;
             response.done_count = done_count;
             response.streak_current = streak_current;
             response.streak_max = streak_max;
@@ -157,30 +157,30 @@ fn create_recurrences(habit: &Habit, days_of_week: &Vec<i32>, db: &DatabaseConne
 }
 
 // TODO: improve error handling
-fn update_next_due(habit: &Habit, recurrences: &Vec<i32>, now: &NaiveDateTime, db: &DatabaseConnection) -> NaiveDateTime {
+fn update_start(habit: &Habit, recurrences: &Vec<i32>, now: &NaiveDateTime, db: &DatabaseConnection) -> NaiveDateTime {
     let day_of_week = now.date().weekday().num_days_from_monday();
-    let next_due_in_days = recurrences.iter()
+    let start_in_days = recurrences.iter()
         .map(|recurrence| if recurrence <= &(day_of_week as i32) {
-            recurrence + 7 - day_of_week as i32 + 1
+            recurrence + 7 - day_of_week as i32
         } else {
-            recurrence - day_of_week as i32 + 1
+            recurrence - day_of_week as i32
         }).min().unwrap();
 
-    let next_due = now.add(Duration::days(next_due_in_days as i64)).date().and_hms(0, 0, 0);
+    let start = now.add(Duration::days(start_in_days as i64)).date().and_hms(0, 0, 0);
 
-    let changed_habit = ChangedHabit::from_next_due(next_due);
+    let changed_habit = ChangedHabit::from_start(start);
 
     diesel::update(habits::table.find(habit.id))
         .set(&changed_habit)
         .execute(&db.0).unwrap();
 
-    next_due
+    start
 }
 
 fn update_statistics(habit: &Habit, now: &NaiveDateTime, db: &DatabaseConnection) -> (i32, i32, i32) {
     let done_count = habit.done_count + 1;
 
-    let streak_current = if now < &habit.next_due {
+    let streak_current = if now < &habit.start.add(Duration::days(habit.time_limit as i64)).date().and_hms(0, 0, 0) {
         habit.streak_current + 1
     } else {
         1

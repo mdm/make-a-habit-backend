@@ -7,9 +7,8 @@ pub struct Habit {
     pub id: i32,
     pub name: String,
     pub description: Option<String>,
-    pub time_limit: i32,
     pub start: NaiveDateTime,
-    pub next_due: NaiveDateTime,
+    pub time_limit: i32,
     pub done_count: i32,
     pub streak_current: i32,
     pub streak_max: i32,
@@ -21,9 +20,9 @@ pub struct HabitResponse {
     pub id: i32,
     pub name: String,
     pub description: Option<String>,
+    pub start: NaiveDateTime,
     pub time_limit: i32,
     pub recurrences: Vec<i32>,
-    pub next_due: NaiveDateTime,
     pub done_count: i32,
     pub streak_current: i32,
     pub streak_max: i32,
@@ -35,9 +34,9 @@ impl HabitResponse {
             id: habit.id,
             name: habit.name,
             description: habit.description,
+            start: habit.start,
             time_limit: habit.time_limit,
             recurrences: recurrences,
-            next_due: habit.next_due,
             done_count: habit.done_count,
             streak_current: habit.streak_current,
             streak_max: habit.streak_max,
@@ -58,9 +57,8 @@ pub struct HabitRequest {
 pub struct NewHabit {
     pub name: String,
     pub description: Option<String>,
-    pub time_limit: i32,
     pub start: NaiveDateTime,
-    pub next_due: Option<NaiveDateTime>,
+    pub time_limit: i32,
 }
 
 impl NewHabit {
@@ -68,9 +66,8 @@ impl NewHabit {
         NewHabit {
             name: habit.name,
             description: habit.description,
-            time_limit: habit.time_limit,
             start: Utc::now().naive_local(),
-            next_due: None,
+            time_limit: habit.time_limit,
         }
     }
 }
@@ -80,8 +77,8 @@ impl NewHabit {
 pub struct ChangedHabit {
     pub name: Option<String>,
     pub description: Option<String>,
+    pub start: Option<NaiveDateTime>,
     pub time_limit: Option<i32>,
-    pub next_due: Option<NaiveDateTime>,
     pub done_count: Option<i32>,
     pub streak_current: Option<i32>,
     pub streak_max: Option<i32>,
@@ -92,20 +89,20 @@ impl ChangedHabit {
         ChangedHabit {
             name: Some(habit.name),
             description: habit.description,
+            start: None,
             time_limit: Some(habit.time_limit),
-            next_due: None,
             done_count: None,
             streak_current: None,
             streak_max: None,
         }
     }
 
-    pub fn from_next_due(next_due: NaiveDateTime) -> ChangedHabit {
+    pub fn from_start(start: NaiveDateTime) -> ChangedHabit {
         ChangedHabit {
             name: None,
             description: None,
+            start: Some(start),
             time_limit: None,
-            next_due: Some(next_due),
             done_count: None,
             streak_current: None,
             streak_max: None,
@@ -116,8 +113,8 @@ impl ChangedHabit {
         ChangedHabit {
             name: None,
             description: None,
+            start: None,
             time_limit: None,
-            next_due: None,
             done_count: Some(done_count),
             streak_current: Some(streak_current),
             streak_max: Some(streak_max),
